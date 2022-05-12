@@ -1,4 +1,3 @@
-from std/base64 import nil
 from std/uri import decodeQuery
 from std/htmlgen import nil
 from std/os import getEnv
@@ -10,15 +9,21 @@ from std/xmltree import escape
 type Todo = tuple[desc: string, done: bool]
 
 proc render_todo(todo: Todo): string =
-  let id = base64.encode(todo.desc);
   let input =
     if todo.done:
-        htmlgen.input(type = "checkbox", checked = "", value = id)
+        htmlgen.input(type = "checkbox", checked = "", name = "check",
+            value = todo.desc)
       else:
-        htmlgen.input(type = "checkbox", value = id)
+        htmlgen.input(type = "checkbox", name = "check", value = todo.desc)
   htmlgen.li(
     htmlgen.label(
-      input,
+      htmlgen.form(
+        `method` = "post",
+        style = "display:inline",
+        onchange = "event.currentTarget.submit()",
+        input,
+        htmlgen.input(type = "hidden", name = "uncheck", value = todo.desc)
+      ),
       escape(todo.desc)
     )
   )
@@ -35,10 +40,10 @@ proc render_page(todos: seq[Todo]): string =
       htmlgen.h1("todo"),
       htmlgen.form(
         `method` = "post",
-        htmlgen.input(type = "text", name = "desc", id = "desc"),
+        htmlgen.input(type = "text", name = "new", id = "desc"),
         htmlgen.input(type = "submit", value = "add")
       ),
-      htmlgen.ul(todoHtml)
+      htmlgen.ul(id = "todos", todoHtml)
     )
   )
 
@@ -49,7 +54,8 @@ proc read_todos(): seq[Todo] {.raises: [IOError].} =
   var todos: seq[Todo] = @[]
   var line = ""
   while file.readLine(line):
-    if line[0..1] == "x ":
+    if line == "": continue
+    if len(line) >= 2 and line[0..1] == "x ":
       todos.add((desc: line[2..^1], done: true))
     else:
       todos.add((desc: line, done: false))
@@ -65,7 +71,14 @@ proc write_todos(todos: seq[Todo]) {.raises: [IOError].} =
 
 proc add_todo(new_todo: Todo): seq[Todo] {.raises: [IOError].} =
   var todos = read_todos()
-  if new_todo notin todos: todos.add(new_todo)
+  if (new_todo notin todos) and (new_todo.desc != ""): todos.add(new_todo)
+  write_todos(todos)
+  todos
+
+proc set_todo(changed_todo: Todo): seq[Todo] {.raises: [IOError].} =
+  var todos = read_todos()
+  for todo in todos.mitems:
+    if todo.desc == changed_todo.desc: todo.done = changed_todo.done
   write_todos(todos)
   todos
 
@@ -74,31 +87,34 @@ proc log_error() =
   echo "Got exception: ", msg
 
 proc handle_req(req: Request): (HttpCode, string) {.raises: [].} =
-  case req.url.path:
-    of "/":
-      case req.reqMethod:
-        of HttpGet:
-          let todos =
-            try: read_todos()
-            except IOError:
-              log_error()
-              return (Http500, "")
-          (Http200, render_page(todos))
-        of HttpPost:
-          for (key, value) in decodeQuery(req.body):
-            if key == "desc":
-              let todos =
-                try:
-                  add_todo((desc: value, done: false))
-                except IOError:
-                  log_error()
-                  return (Http500, "")
-              return (Http200, render_page(todos))
-          (Http400, "")
-        else:
-          (Http405, "")
+  case req.reqMethod:
+    of HttpGet:
+      let todos =
+        try: read_todos()
+        except IOError:
+          log_error()
+          return (Http500, "")
+      (Http200, render_page(todos))
+    of HttpPost:
+      for (key, value) in decodeQuery(req.body):
+        case key:
+          of "new":
+            let todos =
+              try: add_todo((desc: value, done: false))
+              except IOError:
+                log_error()
+                return (Http500, "")
+            return (Http200, render_page(todos))
+          of "check", "uncheck":
+            let todos =
+              try: set_todo((desc: value, done: key == "check"))
+              except IOError:
+                log_error()
+                return (Http500, "")
+            return (Http200, render_page(todos))
+      (Http400, "")
     else:
-      (Http404, "")
+      (Http405, "")
 
 proc main {.async.} =
   let server = newAsyncHttpServer()
