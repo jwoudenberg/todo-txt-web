@@ -12,25 +12,33 @@ type Todo = tuple[desc: string, done: bool]
 proc render_todo(todo: Todo): string =
   let input =
     if todo.done:
-        htmlgen.input(type = "checkbox", checked = "", name = "check",
-            value = todo.desc)
+        htmlgen.input(
+          type = "checkbox",
+          checked = "",
+          name = "check",
+          value = todo.desc,
+          id = todo.desc
+        )
       else:
-        htmlgen.input(type = "checkbox", name = "check", value = todo.desc)
+        htmlgen.input(
+          type = "checkbox",
+          name = "check",
+          value = todo.desc,
+          id = todo.desc
+        )
   htmlgen.li(
-    htmlgen.label(
-      htmlgen.form(
-        `method` = "post",
-        style = "display:inline",
-        onchange = "event.currentTarget.submit()",
-        input,
-        htmlgen.input(type = "hidden", name = "uncheck", value = todo.desc)
-      ),
-      escape(todo.desc)
+    htmlgen.form(
+      `method` = "post",
+      onchange = "event.currentTarget.submit()",
+      input,
+      htmlgen.label(`for` = todo.desc, escape(todo.desc)),
+      htmlgen.input(type = "hidden", name = "uncheck", value = todo.desc)
     )
   )
 
 proc render_page(todos: seq[Todo]): string =
   var todoHtml = "";
+  const styles = staticRead("styles.css")
   let sorted_todos =
     todos.sorted do (x, y: Todo) -> int:
       cmp(x.done, y.done)
@@ -47,7 +55,8 @@ proc render_page(todos: seq[Todo]): string =
         htmlgen.input(type = "text", name = "new", id = "desc"),
         htmlgen.input(type = "submit", value = "add")
       ),
-      htmlgen.ul(id = "todos", todoHtml)
+      htmlgen.ul(id = "todos", todoHtml),
+      htmlgen.style(styles)
     )
   )
 

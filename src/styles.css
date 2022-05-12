@@ -1,0 +1,37 @@
+body {
+  max-width: 600px;
+  margin: 2em auto;
+  font-family: arial, sans-serif;
+  padding: 0 0.5em;
+  font-size: 1.4em;
+}
+
+h1 {
+  font-size: 1.5em;
+}
+
+input[type=text], input[type=submit] {
+  font-size: inherit;
+}
+
+ul {
+  list-style: none;
+  padding-left: 0;
+  border-top: 1px solid #ddd;
+}
+
+li form {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  border-bottom: 1px solid #ddd;
+}
+
+input[type=checkbox] + label {
+  padding: 0.5em;
+  flex-grow: 1;
+}
+
+input[type=checkbox]:checked + label {
+  text-decoration: line-through;
+}
