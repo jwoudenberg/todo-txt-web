@@ -1,4 +1,5 @@
 from std/uri import decodeQuery
+from std/algorithm import sorted
 from std/htmlgen import nil
 from std/os import getEnv
 from std/strutils import parseUInt
@@ -30,7 +31,10 @@ proc render_todo(todo: Todo): string =
 
 proc render_page(todos: seq[Todo]): string =
   var todoHtml = "";
-  for todo in todos: todoHtml.add(render_todo(todo))
+  let sorted_todos =
+    todos.sorted do (x, y: Todo) -> int:
+      cmp(x.done, y.done)
+  for todo in sorted_todos: todoHtml.add(render_todo(todo))
   "<! DOCTYPE html>" &
   htmlgen.html(
     htmlgen.head(
