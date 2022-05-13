@@ -9,6 +9,13 @@ from std/xmltree import escape
 
 type Todo = tuple[desc: string, done: bool]
 
+type Config = tuple[todo_txt_file: string, port: Port]
+
+proc read_config(): Config =
+  let todo_txt_file = getEnv("TODO_TXT_PATH")
+  let port = Port(parseUInt(getEnv("PORT", "0")))
+  (todo_txt_file, port)
+
 proc render_todo(todo: Todo): string =
   let input =
     if todo.done:
@@ -60,9 +67,8 @@ proc render_page(todos: seq[Todo]): string =
     )
   )
 
-proc read_todos(): seq[Todo] {.raises: [IOError].} =
-  let path = getEnv("TODO_TXT_PATH")
-  let file = open(path, fmRead)
+proc read_todos(config: Config): seq[Todo] {.raises: [IOError].} =
+  let file = open(config.todo_txt_file, fmRead)
   defer: close(file)
   var todos: seq[Todo] = @[]
   var line = ""
@@ -74,36 +80,35 @@ proc read_todos(): seq[Todo] {.raises: [IOError].} =
       todos.add((desc: line, done: false))
   todos
 
-proc write_todos(todos: seq[Todo]) {.raises: [IOError].} =
-  let path = getEnv("TODO_TXT_PATH")
-  let file = open(path, fmWrite)
+proc write_todos(config: Config, todos: seq[Todo]) {.raises: [IOError].} =
+  let file = open(config.todo_txt_file, fmWrite)
   defer: close(file)
   for todo in todos:
     if todo.done: file.write("x ")
     file.writeLine(todo.desc)
 
-proc add_todo(new_todo: Todo): seq[Todo] {.raises: [IOError].} =
-  var todos = read_todos()
+proc add_todo(config: Config, new_todo: Todo): seq[Todo] {.raises: [IOError].} =
+  var todos = read_todos(config)
   if (new_todo notin todos) and (new_todo.desc != ""): todos.add(new_todo)
-  write_todos(todos)
+  write_todos(config, todos)
   todos
 
-proc set_todo(changed_todo: Todo): seq[Todo] {.raises: [IOError].} =
-  var todos = read_todos()
+proc set_todo(config: Config, changed_todo: Todo): seq[Todo] {.raises: [IOError].} =
+  var todos = read_todos(config)
   for todo in todos.mitems:
     if todo.desc == changed_todo.desc: todo.done = changed_todo.done
-  write_todos(todos)
+  write_todos(config, todos)
   todos
 
 proc log_error() =
   let msg = getcurrentExceptionMsg()
   echo "Got exception: ", msg
 
-proc handle_req(req: Request): (HttpCode, string) {.raises: [].} =
+proc handle_req(config: Config, req: Request): (HttpCode, string) {.raises: [].} =
   case req.reqMethod:
     of HttpGet:
       let todos =
-        try: read_todos()
+        try: read_todos(config)
         except IOError:
           log_error()
           return (Http500, "")
@@ -113,14 +118,14 @@ proc handle_req(req: Request): (HttpCode, string) {.raises: [].} =
         case key:
           of "new":
             let todos =
-              try: add_todo((desc: value, done: false))
+              try: add_todo(config, (desc: value, done: false))
               except IOError:
                 log_error()
                 return (Http500, "")
             return (Http200, render_page(todos))
           of "check", "uncheck":
             let todos =
-              try: set_todo((desc: value, done: key == "check"))
+              try: set_todo(config, (desc: value, done: key == "check"))
               except IOError:
                 log_error()
                 return (Http500, "")
@@ -130,12 +135,12 @@ proc handle_req(req: Request): (HttpCode, string) {.raises: [].} =
       (Http405, "")
 
 proc main {.async.} =
+  let config = read_config()
   let server = newAsyncHttpServer()
-  let port = Port(parseUInt(getEnv("PORT", "0")))
-  server.listen(port)
+  server.listen(config.port)
   echo "server running on localhost:" & $server.getPort.uint16 & "/"
   proc cb(req: Request) {.async.} =
-    let (status, response) = handle_req(req)
+    let (status, response) = handle_req(config, req)
     let headers = {"Content-type": "text/html; charset=utf-8"}
     try:
       return req.respond(status, response, headers.newHttpHeaders())
