@@ -8,28 +8,33 @@ h1 {
   font-size: 1.5em;
 }
 
-input[type=text], input[type=submit] {
+form#new-todo input[type=text] {
+  width: 100%;
+  padding: 0.4em;
+  border-radius: 0.2em;
+  border-width: 2px;
+  border-color: #ddd;
   font-size: inherit;
 }
 
-ul {
+ul#todos {
   list-style: none;
   padding-left: 0;
   border-top: 1px solid #ddd;
 }
 
-li form {
+ul#todos li form {
   display: flex;
   align-items: center;
   margin: 0;
   border-bottom: 1px solid #ddd;
 }
 
-input[type=checkbox] + label {
+ul#todos input[type=checkbox] + label {
   padding: 0.5em;
   flex-grow: 1;
 }
 
-input[type=checkbox]:checked + label {
+ul#todos input[type=checkbox]:checked + label {
   text-decoration: line-through;
 }

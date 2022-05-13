@@ -59,9 +59,9 @@ proc render_page(config: Config, todos: seq[Todo]): string =
     htmlgen.body(
       htmlgen.h1(config.title),
       htmlgen.form(
+        id = "new-todo",
         `method` = "post",
-        htmlgen.input(type = "text", name = "new", id = "desc"),
-        htmlgen.input(type = "submit", value = "add")
+        htmlgen.input(type = "text", name = "new", id = "desc")
       ),
       htmlgen.ul(id = "todos", todoHtml),
       htmlgen.style(styles)
