@@ -8,4 +8,5 @@ wash dishes
 EOT
 export PORT=8080
 export TODO_TXT_PATH=test-todos.txt
+export TITLE='Test Todos'
 git ls-files | entr -ccr -s "nim r src/main.nim"

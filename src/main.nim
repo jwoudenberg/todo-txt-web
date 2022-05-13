@@ -9,12 +9,13 @@ from std/xmltree import escape
 
 type Todo = tuple[desc: string, done: bool]
 
-type Config = tuple[todo_txt_file: string, port: Port]
+type Config = tuple[todo_txt_file: string, port: Port, title: string]
 
 proc read_config(): Config =
   let todo_txt_file = getEnv("TODO_TXT_PATH")
   let port = Port(parseUInt(getEnv("PORT", "0")))
-  (todo_txt_file, port)
+  let title = getEnv("TITLE", "Todo")
+  (todo_txt_file, port, title)
 
 proc render_todo(todo: Todo): string =
   let input =
@@ -43,7 +44,7 @@ proc render_todo(todo: Todo): string =
     )
   )
 
-proc render_page(todos: seq[Todo]): string =
+proc render_page(config: Config, todos: seq[Todo]): string =
   var todoHtml = "";
   const styles = staticRead("styles.css")
   let sorted_todos =
@@ -53,10 +54,10 @@ proc render_page(todos: seq[Todo]): string =
   "<! DOCTYPE html>" &
   htmlgen.html(
     htmlgen.head(
-      htmlgen.title("todo")
+      htmlgen.title(config.title)
     ),
     htmlgen.body(
-      htmlgen.h1("todo"),
+      htmlgen.h1(config.title),
       htmlgen.form(
         `method` = "post",
         htmlgen.input(type = "text", name = "new", id = "desc"),
@@ -112,7 +113,7 @@ proc handle_req(config: Config, req: Request): (HttpCode, string) {.raises: [].}
         except IOError:
           log_error()
           return (Http500, "")
-      (Http200, render_page(todos))
+      (Http200, render_page(config, todos))
     of HttpPost:
       for (key, value) in decodeQuery(req.body):
         case key:
@@ -122,14 +123,14 @@ proc handle_req(config: Config, req: Request): (HttpCode, string) {.raises: [].}
               except IOError:
                 log_error()
                 return (Http500, "")
-            return (Http200, render_page(todos))
+            return (Http200, render_page(config, todos))
           of "check", "uncheck":
             let todos =
               try: set_todo(config, (desc: value, done: key == "check"))
               except IOError:
                 log_error()
                 return (Http500, "")
-            return (Http200, render_page(todos))
+            return (Http200, render_page(config, todos))
       (Http400, "")
     else:
       (Http405, "")
