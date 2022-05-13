@@ -51,7 +51,7 @@ proc render_page(config: Config, todos: seq[Todo]): string =
     todos.sorted do (x, y: Todo) -> int:
       cmp(x.done, y.done)
   for todo in sorted_todos: todoHtml.add(render_todo(todo))
-  "<! DOCTYPE html>" &
+  "<!DOCTYPE html>" &
   htmlgen.html(
     htmlgen.head(
       htmlgen.title(config.title)
